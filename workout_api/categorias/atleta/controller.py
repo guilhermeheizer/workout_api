@@ -1,8 +1,7 @@
 from datetime import datetime
 from sqlite3 import IntegrityError
 from uuid import uuid4
-from fastapi import APIRouter, Body, Depends, HTTPException, status
-from fastapi_pagination import Page, Params, paginate
+from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import UUID4
 
 from workout_api.atleta.schemas import AtletaIn, AtletaOut, AtletaUpdate
@@ -85,14 +84,13 @@ async def post(
     '/', 
     summary='Consultar todos os Atletas',
     status_code=status.HTTP_200_OK,
-    response_model=Page[dict],
+    response_model=list[dict],
 )
 async def query(
     db_session: DatabaseDependency,
     nome: str | None = None,
-    cpf: str | None = None,
-    params: Params = Depends()
-) -> Page[dict]:
+    cpf: str | None = None
+) -> list[dict]:
     # Construir a consulta base
     query = select(AtletaModel).join(CategoriaModel).join(CentroTreinamentoModel)
 
@@ -102,11 +100,11 @@ async def query(
     if cpf:
         query = query.filter(AtletaModel.cpf == cpf)  # Busca exata por CPF
 
-    # Executar a consulta no banco
+    # Executar a consulta
     atletas = (await db_session.execute(query)).scalars().all()
 
-    # Formatar a resposta com os campos necessários
-    atletas_out = [
+    # Personalizar o formato de resposta
+    return [
         {
             "nome": atleta.nome,
             "centro_treinamento": atleta.centro_treinamento.nome,
@@ -114,9 +112,6 @@ async def query(
         }
         for atleta in atletas
     ]
-
-    # Retorna os resultados paginados
-    return paginate(atletas_out, params)
 
 
 @router.get(
